@@ -56,7 +56,7 @@ jobs:
       - name: Start build
         run: |
           cp mod_params.sh /opt/rt-n56u/trunk
-          cp ${conf_file} /opt/rt-n56u/trunk
+          cp ${conf_file} /opt/rt-n56u/trunk/.config
           cd /opt/rt-n56u/trunk
           sudo ./clear_tree
           fakeroot ./build_firmware_ci $TGT
