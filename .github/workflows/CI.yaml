@@ -29,6 +29,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libtool-bin gperf python3-docutils autopoint gettext
+          mkdir -p ${images_dir}
       - name: Clone source code
         run: |
           git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
@@ -50,8 +51,8 @@ jobs:
           TNAME: K2P_DRV
         run: |
           cp mod_params.sh /opt/rt-n56u/trunk
+          cp k2p_drv.conf /opt/rt-n56u/trunk/configs/templates/K2P_DRV.config
           cd /opt/rt-n56u/trunk
-          mkdir -p ${images_dir}
           if [ ! -f configs/templates/$TNAME.config ] ; then
           echo "configs/templates/$TNAME.config not found "
           exit 1
