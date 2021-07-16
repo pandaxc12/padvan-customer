@@ -47,8 +47,8 @@ jobs:
           cp ${conf_file} /opt/rt-n56u/trunk/configs/templates/${TGT}.config
           # build-in smartdns and v2ray
           cd /opt/rt-n56u/trunk
-          mkdir user/smartdns
-          mkdir user/v2ray
+          if [ ! -d "user/smartdns"]; then mkdir -p "user/smartdns"; fi
+          if [ ! -d "user/v2ray"]; then mkdir -p "user/v2ray"; fi
           wget -P user/smartdns/ https://raw.githubusercontent.com/pandaxc12/v2ray-padavan-doh/master/padavan/smartdns/Makefile
           wget https://raw.githubusercontent.com/pandaxc12/v2ray-padavan-doh/master/padavan/user/Makefile -O user/Makefile
           wget -P user/v2ray/ https://raw.githubusercontent.com/pandaxc12/v2ray-padavan-doh/master/padavan/v2ray/Makefile
