@@ -1,0 +1,69 @@
+name: Build Padavan
+
+on: 
+  release:
+    types: [published]
+  push:
+    tags:
+    - 'v*'
+  #  branches: 
+  #    - master
+#  schedule:
+#    - cron: 0 8 * * 5
+  watch:
+    types: [started]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-20.04
+    if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
+    env:
+      images_dir: /opt/images
+    steps:
+      - uses: actions/checkout@v2
+      - name: Prepare environment
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt update
+          sudo apt install libtool-bin gperf python3-docutils autopoint gettext
+      - name: Clone source code
+        run: |
+          git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
+      - name: Run shellcheck
+        run: |
+          cd /opt/rt-n56u
+          sh ./trunk/tools/shellcheck.sh
+      - name: Prepare toolchain
+        run: |
+          cd /opt/rt-n56u/toolchain-mipsel
+          sh dl_toolchain.sh
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled == 'yes' }}
+        with:
+          limit-access-to-actor: true
+      - name: Start build
+        env:
+          TNAME: K2P_DRV
+        run: |
+          cp mod_params.sh /opt/rt-n56u/trunk
+          cd /opt/rt-n56u/trunk
+          mkdir -p ${images_dir}
+          if [ ! -f configs/templates/$TNAME.config ] ; then
+          echo "configs/templates/$TNAME.config not found "
+          exit 1
+          fi
+          cp -f configs/templates/$TNAME.config .config
+          sh mod_params.sh
+          sudo ./clear_tree
+          fakeroot ./build_firmware_ci $TNAME
+          sudo mv -f images/*.trx /opt/images/
+      - name : Upload packages
+        uses: actions/upload-artifact@master
+        if: always()
+        with:
+          name: Padavan-packages
+          path: /opt/images
