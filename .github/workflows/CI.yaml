@@ -21,6 +21,7 @@ jobs:
     if: ${{ !(github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }}
     env:
       images_dir: /opt/images
+      TNAME: K2P_DRV
     steps:
       - uses: actions/checkout@v2
       - name: Prepare environment
@@ -29,36 +30,38 @@ jobs:
         run: |
           sudo apt update
           sudo apt install libtool-bin gperf python3-docutils autopoint gettext
-          mkdir -p ${images_dir}
-      - name: Clone source code
-        run: |
-          git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
-      - name: Run shellcheck
-        run: |
-          cd /opt/rt-n56u
-          sh ./trunk/tools/shellcheck.sh
-      - name: Prepare toolchain
-        run: |
-          cd /opt/rt-n56u/toolchain-mipsel
-          sh dl_toolchain.sh
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.debug_enabled == 'yes' }}
         with:
           limit-access-to-actor: true
-      - name: Start build
-        env:
-          TNAME: K2P_DRV
+      - name: Prebuild
         run: |
-          cp mod_params.sh /opt/rt-n56u/trunk
-          cp k2p_drv.conf /opt/rt-n56u/trunk/configs/templates/K2P_DRV.config
+          git clone --depth=1 https://github.com/hanwckf/rt-n56u.git /opt/rt-n56u
+          mkdir -p ${images_dir}
+          cd /opt/rt-n56u/toolchain-mipsel
+          sh dl_toolchain.sh
+      - name: Customer configurations
+        run: |
+          cp k2p_drv.conf /opt/rt-n56u/trunk/configs/templates/${TNAME}.config
           cd /opt/rt-n56u/trunk
-          if [ ! -f configs/templates/$TNAME.config ] ; then
-          echo "configs/templates/$TNAME.config not found "
-          exit 1
-          fi
+          # mod parameters
+          sed -i 's/CONFIG_MTD_STORE_PART_SIZ=0x80000/CONFIG_MTD_STORE_PART_SIZ=0x600000/' configs/boards/K2P/kernel-3.4.x-5.0.config
+          sed -i 's/mtd_part_size=65536/mtd_part_size=6291456/' user/scripts/mtd_storage.sh
+          sed -i 's/CONFIG_MTD_STORE_PART_SIZ=0x80000/CONFIG_MTD_STORE_PART_SIZ=0x600000/g' trunk/configs/boards/K2P/kernel-3.4.x.config
+          sed -i 's/mtd_part_size=65536/mtd_part_size=6291456/g' trunk/user/scripts/mtd_storage.sh
+          sed -i '/module_smart_load("xt_set", NULL);/amodule_smart_load("xt_TPROXY", NULL);' user/rc/rc.c
+          # build-in smartdns and v2ray
+          mkdir user/smartdns
+          mkdir user/v2ray
+          wget -P user/smartdns/ https://raw.githubusercontent.com/pandaxc12/v2ray-padavan-doh/master/padavan/smartdns/Makefile
+          wget https://raw.githubusercontent.com/pandaxc12/v2ray-padavan-doh/master/padavan/user/Makefile -O user/Makefile
+          wget -P user/v2ray/ https://raw.githubusercontent.com/pandaxc12/v2ray-padavan-doh/master/padavan/v2ray/Makefile
+
+      - name: Start build
+        run: |
+          cd /opt/rt-n56u/trunk
           cp -f configs/templates/$TNAME.config .config
-          sh mod_params.sh
           sudo ./clear_tree
           fakeroot ./build_firmware_ci $TNAME
           sudo mv -f images/*.trx /opt/images/
